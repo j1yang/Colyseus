@@ -1,18 +1,24 @@
-//Colyseus Client
 import * as Colyseus from "colyseus.js";
-import { scene } from "./scene.js";
 import * as THREE from "three";
+import { scene } from "./scene.js";
 
-//Set up client port
-const client = new Colyseus.Client("ws://localhost:2567");
+// Constants
+const SERVER_URL = "ws://localhost:2567";
+const BOX_SIZE = 0.5;
+const BOX_HEIGHT = 2;
 
-//Room, player variable
+// Colyseus client setup
+const client = new Colyseus.Client(SERVER_URL);
+
+// Room and player variables
 let room, player;
 
-//function that create player as Random Coloured Cube
+// Object map for efficient object lookup
+const objectMap = {};
+
+// Function to create a player mesh
 function createPlayerMesh(pos, colour, sessionId) {
-  //const boxGeometry = new THREE.BoxGeometry(50, 0, 50);
-  const boxGeometry = new THREE.BoxGeometry(0.5, 2, 0.5);
+  const boxGeometry = new THREE.BoxGeometry(BOX_SIZE, BOX_HEIGHT, BOX_SIZE);
   const boxMaterial = new THREE.MeshPhongMaterial({ color: colour });
   const playerMesh = new THREE.Mesh(boxGeometry, boxMaterial);
   playerMesh.name = sessionId;
@@ -20,68 +26,54 @@ function createPlayerMesh(pos, colour, sessionId) {
   return playerMesh;
 }
 
-//
-function findObjectByName(scene, name) {
-  // Iterate through all children of the scene
-  for (let i = 0; i < scene.children.length; i++) {
-    const child = scene.children[i];
-    // Check if the name of the child matches the target name
-    if (child.name === name) {
-      // Return the object if found
-      return child;
-    }
+// Function to handle player movement messages
+function handleMoveMessage(message) {
+  const object = objectMap[message.client.sessionId];
+  if (object) {
+    const { x, y, z } = message.message;
+    object.position.set(x, y, z);
+  } else {
+    console.log("Object not found.");
   }
-  // Return null if object with the specified name is not found
-  return null;
 }
 
+// Colyseus room setup
 client
   .joinOrCreate("my_room")
   .then((r) => {
     room = r;
 
+    // Initial setup when joining the room
     room.onStateChange.once((state) => {
       player = room.state.players[r.sessionId];
     });
 
-    // room.onStateChange((state) => {
-    //   console.log("Room state has been updated:", state);
-    // });
-
-    room.state.players.onAdd((player, key) => {
-      const object = findObjectByName(scene, key);
-      if (!object) {
-        console.log(player, "has been added at", key);
-        let p = createPlayerMesh(
-          { x: player.x, y: player.y, z: player.z },
-          player.colour,
-          key
-        );
-        scene.add(p);
-      }
-    });
-    room.onMessage("move", (message, client) => {
-      //console.log("message from server move");
-      const object = findObjectByName(scene, message.client.sessionId);
-      if (object) {
-        object.position.x = message.message.x;
-        object.position.y = message.message.y;
-        object.position.z = message.message.z;
-      } else {
-        console.log("Object not found.");
+    // Handle new players joining the room
+    room.state.players.onAdd((newPlayer, key) => {
+      if (!objectMap[key]) {
+        console.log(newPlayer, "has been added at", key);
+        const playerMesh = createPlayerMesh(newPlayer, newPlayer.colour, key);
+        scene.add(playerMesh);
+        objectMap[key] = playerMesh;
       }
     });
 
+    // Handle player movement messages
+    room.onMessage("move", handleMoveMessage);
+
+    // Handle player leaving the room
     room.onLeave((code) => {
       console.log("Client left the room");
     });
   })
-  .catch((e) => {
-    console.error("Join error:", e);
+  .catch((error) => {
+    console.error("Join error:", error);
   });
 
+// Function to update player location
 const updateLocation = (pos) => {
   if (room) room.send("move", pos);
 };
 
+// Export variables and functions
 export { updateLocation, room, player };
