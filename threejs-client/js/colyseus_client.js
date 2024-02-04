@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { scene } from "./scene.js";
 
 // Constants
-const SERVER_URL = "ws://localhost:2567";
+const EC2_INSTANCE_IP = "3.144.165:8080";
+const SERVER_URL = `ws://${EC2_INSTANCE_IP}:2567`;
 const BOX_SIZE = 0.5;
 const BOX_HEIGHT = 2;
 
