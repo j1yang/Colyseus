@@ -3,6 +3,11 @@ import { monitor } from "@colyseus/monitor";
 import { playground } from "@colyseus/playground";
 
 /**
+ * Import the necessary CORS middleware
+ */
+import cors from "cors";
+
+/**
  * Import your Room files
  */
 import { MyRoom } from "./rooms/MyRoom";
@@ -25,6 +30,11 @@ export default config({
         app.get("/hello_world", (req, res) => {
             res.send("It's time to kick ass and chew bubblegum!");
         });
+
+        /**
+         * Enable CORS for all routes
+         */
+        app.use(cors());
 
         /**
          * Use @colyseus/playground
